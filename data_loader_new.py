@@ -75,7 +75,7 @@ def get_loader(video_type, split_index):
     """
     vd_train = VideoData("train", video_type, split_index)
     vd_test = VideoData("test", video_type, split_index)
-    return DataLoader(vd_train, batch_size=10, shuffle=True), DataLoader(vd_test, batch_size=1)
+    return DataLoader(vd_train, batch_size=1, shuffle=True), DataLoader(vd_test, batch_size=1)
 
 
 if __name__ == '__main__':
