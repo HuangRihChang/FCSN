@@ -78,6 +78,7 @@ class Solver(object):
         return frame_features.to(self.device), label.to(self.device)
 
     def train(self, writer):
+        self.model.train()
         t = trange(self.config.n_epochs, desc='Epoch')
         mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
         for epoch_i in t:
