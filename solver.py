@@ -33,7 +33,7 @@ def get_device():
 class Solver(object):
     """Class that Builds, Trains FCSN model"""
 
-    def __init__(self, config=None, train_loader=None, test_dataset=None, device=None):
+    def __init__(self, config=None, train_loader=None, test_dataset=None, device=None, optimizer = "adam"):
         self.config = config
         self.train_loader = train_loader
         self.test_dataset = test_dataset
@@ -44,10 +44,12 @@ class Solver(object):
 
         # optimizer
         if self.config.mode == 'train':
-            # self.optimizer = optim.Adam(self.model.parameters(), lr=config.lr)
-            self.optimizer = optim.SGD(self.model.parameters(), 
-                                        lr=config.lr,
-                                        momentum=self.config.momentum)
+            if optimizer.lower() == "adam":
+                self.optimizer = optim.Adam(self.model.parameters(), lr=config.lr)
+            else:
+                self.optimizer = optim.SGD(self.model.parameters(), 
+                                            lr=config.lr,
+                                            momentum=self.config.momentum)
             self.model.train()
 
         self.model.to(self.device)
@@ -80,7 +82,7 @@ class Solver(object):
         mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
         for epoch_i in t:
             sum_loss_history = []
-            for batch_i, (feature, label) in enumerate(tqdm(self.train_loader, desc='Batch', leave=False)):
+            for batch_i, (feature, label, _) in enumerate(tqdm(self.train_loader, desc='Batch', leave=False)):
                 # [batch_size, 1024, seq_len]
                 feature, label = self.to_device(feature,label)
 
