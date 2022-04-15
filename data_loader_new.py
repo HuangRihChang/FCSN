@@ -61,10 +61,7 @@ class VideoData(Dataset):
         frame_features = self.list_frame_features[index]
         gtscore = self.list_gtscores[index]
         
-        if self.mode == 'test':
-            return frame_features, gtscore, video_name
-        else:
-            return frame_features, gtscore
+        return frame_features, gtscore, video_name
 
 
 def get_loader(video_type, split_index):
