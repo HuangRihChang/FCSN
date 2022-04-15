@@ -105,12 +105,13 @@ class Solver(object):
                 loss = self.sum_loss(pred_score, label, weight)
                 loss.backward()
 
-                self.optimizer.step()
-                self.optimizer.zero_grad()
                 sum_loss_history.append(loss)
                 mean_loss = torch.stack(sum_loss_history).mean().item()
                 t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
             
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            self.model.eval()
             mean_train_f1 = self.evaluate_train()        
             eval_mean, table = self.evaluate(epoch_i)
             writer.add_scalar('Loss', mean_loss, epoch_i)
