@@ -64,7 +64,7 @@ class VideoData(Dataset):
         return frame_features, gtscore, video_name
 
 
-def get_loader(video_type, split_index, batch_train=5, batch_test=1):
+def get_loader(video_type, split_index, batch_train=1, batch_test=1):
     """ Loads the `data.Dataset` of the `split_index` split for the `video_type` Dataset.
     Wrapped by a Dataloader, shuffled and `batch_size` = 1 in train `mode`.
 
@@ -76,7 +76,6 @@ def get_loader(video_type, split_index, batch_train=5, batch_test=1):
     vd_train = VideoData("train", video_type, split_index)
     vd_test = VideoData("test", video_type, split_index)
     return DataLoader(vd_train, batch_size=batch_train, shuffle=True),  DataLoader(vd_train, batch_size=batch_test), DataLoader(vd_test, batch_size=batch_test)
-
 
 if __name__ == '__main__':
     pass

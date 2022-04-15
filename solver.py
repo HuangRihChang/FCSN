@@ -78,13 +78,15 @@ class Solver(object):
     def to_device(self, frame_features, label):
         return frame_features.to(self.device), label.to(self.device)
 
-    def train(self, writer, use_weight=False):
+    def train(self, writer, train_batch=20, use_weight=False):
+        assert train_batch <= len(self.train_val_loader), f"train_batch can not great than {len(self.train_val_loader)}"
         self.model.train()
         t = trange(self.config.n_epochs, desc='Epoch')
         mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
         for epoch_i in t:
+            self.model.train()
             sum_loss_history = []
-            for batch_i, (feature, label, _) in enumerate(tqdm(self.train_val_loader, desc='Batch', leave=False)):
+            for i, (feature, label, _) in enumerate(tqdm(self.train_val_loader, desc='Batch', leave=False)):
                 # [batch_size, 1024, seq_len]
                 feature, label = self.to_device(feature,label)
 
@@ -98,7 +100,7 @@ class Solver(object):
                 if use_weight:
                     label_1 = label.sum()
                     label_0 = label.shape[1] - label_1
-                    weight = torch.tensor([1 - label_0/label.shape[1], 1-label_1/label.shape[1]], dtype=torch.float).to(self.device)
+                    weight = torch.tensor([label_1, label_0], dtype=torch.float).to(self.device)
                 else:
                     weight = None
 
@@ -107,10 +109,11 @@ class Solver(object):
 
                 sum_loss_history.append(loss)
                 mean_loss = torch.stack(sum_loss_history).mean().item()
-                t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
+                t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
+                if i%train_batch:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
             
-            self.optimizer.step()
-            self.optimizer.zero_grad()
             self.model.eval()
             mean_train_f1 = self.evaluate_train()        
             eval_mean, table = self.evaluate(epoch_i)
@@ -118,8 +121,7 @@ class Solver(object):
             writer.add_scalar('F1 eval', eval_mean[-1], epoch_i)
             writer.add_scalar('F1 train', mean_train_f1[-1], epoch_i)
             writer.close()
-            t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
-            self.model.train()
+            t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
 
             if (epoch_i+1) % 30 == 0:
                 tqdm.write(table)
