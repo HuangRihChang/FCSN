@@ -132,4 +132,4 @@ Vihsd_HateSpeech_GNN.ipynb
 weights
 runs
 *.mp4
-eccv16*.h5
+eccv16_dataset_tvsum_google_pool5.h5
