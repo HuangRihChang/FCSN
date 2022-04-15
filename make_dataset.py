@@ -12,9 +12,9 @@ import pdb
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--video_dir', type=str, help='directory containing mp4 file of specified dataset.', default='../data/TVSum_video')
-parser.add_argument('--h5_path', type=str, help='save path of the generated dataset, which should be a hdf5 file.', default='../data/fcsn_tvsum.h5')
-parser.add_argument('--vsumm_data', type=str, help='preprocessed dataset path from this repo: https://github.com/KaiyangZhou/pytorch-vsumm-reinforce, which should be a hdf5 file. We copy cps and some other info from it.', default='../data/eccv_datasets/eccv16_dataset_tvsum_google_pool5.h5')
+parser.add_argument('--video_dir', type=str, help='directory containing mp4 file of specified dataset.', default='./data/SumMe/videos')
+parser.add_argument('--h5_path', type=str, help='save path of the generated dataset, which should be a hdf5 file.', default='./data/SumMe/fcsn_summe.h5')
+parser.add_argument('--vsumm_data', type=str, help='preprocessed dataset path from this repo: https://github.com/KaiyangZhou/pytorch-vsumm-reinforce, which should be a hdf5 file. We copy cps and some other info from it.', default='./data/SumMe/eccv16_dataset_summe_google_pool5.h5')
 
 args = parser.parse_args()
 video_dir = args.video_dir
@@ -50,7 +50,7 @@ transform = transforms.Compose([
 ])
 
 
-net = models.googlenet(pretrained=True).float().cuda()
+net = models.googlenet(pretrained=True).float()
 net.eval()
 fea_net = nn.Sequential(*list(net.children())[:-2])
 
@@ -58,8 +58,8 @@ fea_net = nn.Sequential(*list(net.children())[:-2])
 def sum_fscore(overlap_arr, true_sum_arr, oracle_sum):
     fscores = []
     for overlap, true_sum in zip(overlap_arr, true_sum_arr):
-        precision = overlap / (oracle_sum + 1e-8);
-        recall = overlap / (true_sum + 1e-8);
+        precision = overlap / (oracle_sum + 1e-8)
+        recall = overlap / (true_sum + 1e-8)
         if precision == 0 and recall == 0:
             fscore = 0
         else:
@@ -109,7 +109,7 @@ def video2fea(video_path, h5_f):
     success, frame = video.read()
     while success:
         if (i+1) % ratio == 0:
-            fea.append(fea_net(transform(Image.fromarray(frame)).cuda().unsqueeze(0)).squeeze().detach().cpu())
+            fea.append(fea_net(transform(Image.fromarray(frame)).unsqueeze(0)).squeeze().detach().cpu())
             try:
                 label.append(usr_sum[i])
             except:
