@@ -33,10 +33,9 @@ def get_device():
 class Solver(object):
     """Class that Builds, Trains FCSN model"""
 
-    def __init__(self, config=None, train_loader=None, train_val_loader=None, test_dataset=None, device=None, optimizer = "adam"):
+    def __init__(self, config=None, train_loader=None, test_dataset=None, device=None, optimizer = "adam"):
         self.config = config
         self.train_loader = train_loader
-        self.train_val_loader = train_val_loader
         self.test_dataset = test_dataset
         self.device = device
 
@@ -79,14 +78,14 @@ class Solver(object):
         return frame_features.to(self.device), label.to(self.device)
 
     def train(self, writer, train_batch=20, use_weight=False):
-        assert train_batch <= len(self.train_val_loader), f"train_batch can not great than {len(self.train_val_loader)}"
+        assert train_batch <= len(self.train_loader), f"train_batch can not great than {len(self.train_val_loader)}"
         self.model.train()
         t = trange(self.config.n_epochs, desc='Epoch')
         mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
         for epoch_i in t:
             self.model.train()
             sum_loss_history = []
-            for i, (feature, label, _) in enumerate(tqdm(self.train_val_loader, desc='Batch', leave=False)):
+            for i, (feature, label, _) in enumerate(tqdm(self.train_loader, desc='Batch', leave=False)):
                 # [batch_size, 1024, seq_len]
                 feature, label = self.to_device(feature,label)
 
