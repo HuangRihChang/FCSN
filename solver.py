@@ -33,9 +33,10 @@ def get_device():
 class Solver(object):
     """Class that Builds, Trains FCSN model"""
 
-    def __init__(self, config=None, train_loader=None, test_dataset=None, device=None, optimizer = "adam"):
+    def __init__(self, config=None, train_loader=None, train_val_loader=None, test_dataset=None, device=None, optimizer = "adam"):
         self.config = config
         self.train_loader = train_loader
+        self.train_val_loader = train_val_loader
         self.test_dataset = test_dataset
         self.device = device
 
@@ -83,7 +84,7 @@ class Solver(object):
         mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
         for epoch_i in t:
             sum_loss_history = []
-            for batch_i, (feature, label, _) in enumerate(tqdm(self.train_loader, desc='Batch', leave=False)):
+            for batch_i, (feature, label, _) in enumerate(tqdm(self.train_val_loader, desc='Batch', leave=False)):
                 # [batch_size, 1024, seq_len]
                 feature, label = self.to_device(feature,label)
 
