@@ -72,7 +72,7 @@ class Solver(object):
         log_p = torch.log_softmax(pred_score, dim=-1).reshape(-1, n_class)
         criterion = torch.nn.NLLLoss(weight)
         loss = criterion(log_p, gt_labels)
-        return loss
+        return loss, log_p.shape
 
     def to_device(self, frame_features, label):
         return frame_features.to(self.device), label.to(self.device)
@@ -103,13 +103,13 @@ class Solver(object):
                 else:
                     weight = None
 
-                loss = self.sum_loss(pred_score, label, weight)
+                loss, predict_shape = self.sum_loss(pred_score, label, weight)
                 loss.backward()
 
                 sum_loss_history.append(loss)
                 mean_loss = torch.stack(sum_loss_history).mean().item()
-                t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
-                if i%train_batch:
+                t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1], prediction_shape = predict_shape)
+                if i%train_batch or i+1 == len(self.train_loader):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
             
@@ -133,7 +133,7 @@ class Solver(object):
         eval_arr = []
 
         with h5py.File(self.config.data_path) as data_file:
-            for feature, label, idx in tqdm(self.train_loader, desc='Evaluate', leave=False):
+            for feature, label, idx in tqdm(self.train_loader, desc='Calculing F1', leave=False):
                 idx = str(idx[0].split("_")[-1])
                 feature, label = self.to_device(feature,label)
                 label =label.to(torch.long)
