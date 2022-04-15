@@ -77,7 +77,7 @@ class Solver(object):
 
     def train(self, writer):
         t = trange(self.config.n_epochs, desc='Epoch')
-        mean_loss, eval_mean = 0.0, [0.0,0.0,0.0]
+        mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
         for epoch_i in t:
             sum_loss_history = []
             for batch_i, (feature, label) in enumerate(tqdm(self.train_loader, desc='Batch', leave=False)):
@@ -102,15 +102,15 @@ class Solver(object):
                 self.optimizer.zero_grad()
                 sum_loss_history.append(loss)
                 mean_loss = torch.stack(sum_loss_history).mean().item()
-                mean_train_f1 = self.evaluate_train()
-                self.model.train()
-                t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean=eval_mean[-1], mean_train_f1 = mean_train_f1[-1])
-                
+                t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
+            
+            mean_train_f1 = self.evaluate_train()        
             eval_mean, table = self.evaluate(epoch_i)
             writer.add_scalar('Loss', mean_loss, epoch_i)
-            writer.add_scalar('F1', eval_mean[-1], epoch_i)
+            writer.add_scalar('F1 eval', eval_mean[-1], epoch_i)
+            writer.add_scalar('F1 train', mean_train_f1[-1], epoch_i)
             writer.close()
-            t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean=eval_mean)
+            t.set_postfix(loss=loss.item(), mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
             self.model.train()
 
             if (epoch_i+1) % 30 == 0:
@@ -121,7 +121,6 @@ class Solver(object):
 
     def evaluate_train(self):
         self.model.eval()
-        out_dict = {}
         eval_arr = []
 
         with h5py.File(self.config.data_path) as data_file:
@@ -138,20 +137,15 @@ class Solver(object):
                 true_summary_arr = video_info['user_summary'][()]
                 eval_res = [eval.eval_metrics(pred_summary, true_summary) for true_summary in true_summary_arr]
                 eval_res = np.mean(eval_res, axis=0).tolist()
-
                 eval_arr.append(eval_res)
 
-                out_dict[idx] = {
-                    'pred_score': pred_score, 
-                    'pred_selected': pred_selected, 'pred_summary': pred_summary
-                    }
         eval_mean = np.mean(eval_arr, axis=0).tolist()
         return eval_mean
 
 
     def evaluate(self, epoch_i):
         self.model.eval()
-        out_dict = {}
+        # out_dict = {}
         eval_arr = []
         table = PrettyTable()
         table.title = 'Eval result of epoch {}'.format(epoch_i)
@@ -176,10 +170,10 @@ class Solver(object):
                 eval_arr.append(eval_res)
                 table.add_row([idx] + eval_res)
 
-                out_dict[idx] = {
-                    'pred_score': pred_score, 
-                    'pred_selected': pred_selected, 'pred_summary': pred_summary
-                    }
+                # out_dict[idx] = {
+                #     'pred_score': pred_score, 
+                #     'pred_selected': pred_selected, 'pred_summary': pred_summary
+                #     }
         
         # score_save_path = self.config.score_dir + '/epoch-{}.json'.format(epoch_i)
         # with open(score_save_path, 'w') as f:
