@@ -131,7 +131,7 @@ class Solver(object):
         eval_arr = []
 
         with h5py.File(self.config.data_path) as data_file:
-            for feature, label, idx in tqdm(self.train_loader, desc='Evaluate', leave=False):
+            for feature, label, idx in tqdm(self.train_val_loader, desc='Evaluate', leave=False):
                 idx = str(idx[0].split("_")[-1])
                 feature, label = self.to_device(feature,label)
                 label =label.to(torch.long)
