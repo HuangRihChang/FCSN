@@ -77,7 +77,7 @@ class Solver(object):
     def to_device(self, frame_features, label):
         return frame_features.to(self.device), label.to(self.device)
 
-    def train(self, writer):
+    def train(self, writer, use_weight=False):
         self.model.train()
         t = trange(self.config.n_epochs, desc='Epoch')
         mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
@@ -94,9 +94,12 @@ class Solver(object):
                 # ---- Train ---- #
                 pred_score = self.model(feature).permute(0,2,1)
 
-                label_1 = label.sum()
-                label_0 = label.shape[1] - label_1
-                weight = torch.tensor([1 - label_0/label.shape[1], 1-label_1/label.shape[1]], dtype=torch.float).to(self.device)
+                if use_weight:
+                    label_1 = label.sum()
+                    label_0 = label.shape[1] - label_1
+                    weight = torch.tensor([1 - label_0/label.shape[1], 1-label_1/label.shape[1]], dtype=torch.float).to(self.device)
+                else:
+                    weight = None
 
                 loss = self.sum_loss(pred_score, label, weight)
                 loss.backward()
