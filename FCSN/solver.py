@@ -33,12 +33,15 @@ def get_device():
 class Solver(object):
     """Class that Builds, Trains FCSN model"""
 
-    def __init__(self, config=None, train_loader=None, test_dataset=None, device=None, optimizer = "adam",selection_rate=0.15):
+    def __init__(self, config=None, train_loader=None, test_dataset=None, 
+                 device=None, optimizer="adam", loss_reduction=None,
+                 selection_rate=0.15):
         self.config = config
         self.train_loader = train_loader
         self.test_dataset = test_dataset
         self.device = device
         self.selection_rate = selection_rate
+        self.loss_reduction = loss_reduction
 
         # model
         self.model = FCSN(self.config.n_class)
@@ -65,13 +68,13 @@ class Solver(object):
             os.mkdir(self.config.log_dir)
 
     @staticmethod
-    def sum_loss(pred_score, gt_labels, weight=None):
+    def sum_loss(pred_score, gt_labels, weight=None, loss_reduction=None):
         batch, seq = gt_labels.shape
         _, _, n_class = pred_score.shape
         pred_score = pred_score[:,:seq,:]
         gt_labels = gt_labels.reshape(-1)
         log_p = torch.log_softmax(pred_score, dim=-1).reshape(-1, n_class)
-        criterion = torch.nn.NLLLoss(weight, reduction="sum")
+        criterion = torch.nn.NLLLoss(weight, reduction=loss_reduction)
         loss = criterion(log_p, gt_labels)
         return loss, log_p.shape
 
@@ -104,7 +107,7 @@ class Solver(object):
                 else:
                     weight = None
 
-                loss, predict_shape = self.sum_loss(pred_score, label, weight)
+                loss, predict_shape = self.sum_loss(pred_score, label, weight, self.loss_reduction)
                 loss.backward()
 
                 sum_loss_history.append(loss)
