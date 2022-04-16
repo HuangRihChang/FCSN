@@ -1,13 +1,10 @@
 import torch
 import torch.optim as optim
 
-from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-import json
 import os
 from tqdm.notebook import tqdm, trange
 import h5py
-from prettytable import PrettyTable
 
 from fcsn import FCSN
 import eval
@@ -146,7 +143,7 @@ class Solver(object):
                 n_frames = video_info['length'][()]
                 sb = video_info['change_points'][()]
                 positions = video_info['picks'][()]
-                pred_summary = eval.generate_summary([sb], [pred_score.detach().numpy()], [n_frames], [positions])[0]
+                pred_summary = eval.generate_summary([sb], [pred_score.cpu().detach().numpy()], [n_frames], [positions])[0]
                 true_summary_arr = np.array(video_info['user_summary'][()])
                 eval_res = eval.evaluate_summary(pred_summary, true_summary_arr, self.eval_method)
                 eval_arr.append(eval_res)
@@ -169,7 +166,7 @@ class Solver(object):
                 n_frames = video_info['length'][()]
                 sb = video_info['change_points'][()]
                 positions = video_info['picks'][()]
-                pred_summary = eval.generate_summary([sb], [pred_score.detach().numpy()], [n_frames], [positions])[0]
+                pred_summary = eval.generate_summary([sb], [pred_score.cpu().detach().numpy()], [n_frames], [positions])[0]
                 true_summary_arr = np.array(video_info['user_summary'][()])
                 eval_res = eval.evaluate_summary(pred_summary, true_summary_arr, self.eval_method)
                 eval_arr.append(eval_res)
