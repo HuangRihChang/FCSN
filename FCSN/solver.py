@@ -35,14 +35,14 @@ class Solver(object):
 
     def __init__(self, config=None, train_loader=None, test_dataset=None, 
                  device=None, optimizer="adam", loss_reduction=None,
-                 selection_rate=0.15):
+                 eval_method="max"
+                 ):
         self.config = config
         self.train_loader = train_loader
         self.test_dataset = test_dataset
         self.device = device
-        self.selection_rate = selection_rate
         self.loss_reduction = loss_reduction
-
+        self.eval_method = eval_method
         # model
         self.model = FCSN(self.config.n_class)
 
@@ -85,7 +85,7 @@ class Solver(object):
         assert train_batch <= len(self.train_loader), f"train_batch can not great than {len(self.train_val_loader)}"
         self.model.train()
         t = trange(self.config.n_epochs, desc='Epoch')
-        mean_loss, eval_mean, mean_train_f1 = 0.0, [0.0,0.0,0.0], [0.0,0.0,0.0]
+        mean_loss, eval_mean, mean_train_f1 = 0.0, 0.0, 0.0
         for epoch_i in t:
             self.model.train()
             sum_loss_history = []
@@ -112,22 +112,21 @@ class Solver(object):
 
                 sum_loss_history.append(loss)
                 mean_loss = torch.stack(sum_loss_history).mean().item()
-                t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1], prediction_shape = predict_shape)
+                t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean, mean_train_f1=mean_train_f1, prediction_shape = predict_shape)
                 if i%train_batch or i+1 == len(self.train_loader):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
             
-            self.model.eval()
             mean_train_f1 = self.evaluate_train()        
-            eval_mean, table = self.evaluate(epoch_i)
+            eval_mean = self.evaluate()
             writer.add_scalar('Loss', mean_loss, epoch_i)
-            writer.add_scalar('F1 eval', eval_mean[-1], epoch_i)
-            writer.add_scalar('F1 train', mean_train_f1[-1], epoch_i)
+            writer.add_scalar('F1 eval', eval_mean, epoch_i)
+            writer.add_scalar('F1 train', mean_train_f1, epoch_i)
             writer.close()
-            t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean[-1], mean_train_f1=mean_train_f1[-1])
+            t.set_postfix(mean_loss=mean_loss, eval_mean_f1=eval_mean, mean_train_f1=mean_train_f1)
 
             if (epoch_i+1) % 30 == 0:
-                tqdm.write(table)
+                continue
             #     ckpt_path = self.config.save_dir + '/epoch-{}.pt]'.format(epoch_i)
             #     tqdm.write('Save parameters at {}'.format(ckpt_path))
             #     torch.save(self.model.state_dict(), ckpt_path)
@@ -135,64 +134,44 @@ class Solver(object):
     def evaluate_train(self):
         self.model.eval()
         eval_arr = []
-
         with h5py.File(self.config.data_path) as data_file:
             for feature, label, idx in tqdm(self.train_loader, desc='Calculing F1', leave=False):
                 idx = str(idx[0].split("_")[-1])
                 feature, label = self.to_device(feature,label)
                 label =label.to(torch.long)
                 feature = feature.permute(0,2,1)
-
                 pred_score = self.model(feature).permute(0,2,1).squeeze(0)
                 pred_score = torch.softmax(pred_score, dim=-1)[:,1]
-                video_info = data_file["video_"+str(idx)]
-                pred_score, pred_selected, pred_summary = eval.select_keyshots(video_info, pred_score, self.selection_rate)
-                true_summary_arr = video_info['user_summary'][()]
-                eval_res = [eval.eval_metrics(pred_summary, true_summary) for true_summary in true_summary_arr]
-                eval_res = np.mean(eval_res, axis=0).tolist()
+                video_info = data_file["video_"+str(idx)]                
+                n_frames = video_info['length'][()]
+                sb = video_info['change_points'][()]
+                positions = video_info['picks'][()]
+                pred_summary = eval.generate_summary([sb], [pred_score.detach().numpy()], [n_frames], [positions])[0]
+                true_summary_arr = np.array(video_info['user_summary'][()])
+                eval_res = eval.evaluate_summary(pred_summary, true_summary_arr, self.eval_method)
                 eval_arr.append(eval_res)
-
         eval_mean = np.mean(eval_arr, axis=0).tolist()
         return eval_mean
 
 
-    def evaluate(self, epoch_i):
+    def evaluate(self):
         self.model.eval()
-        # out_dict = {}
         eval_arr = []
-        table = PrettyTable()
-        table.title = 'Eval result of epoch {}'.format(epoch_i)
-        table.field_names = ['ID', 'Precision', 'Recall', 'F-score']
-        table.float_format = '1.3'
-
         with h5py.File(self.config.data_path) as data_file:
             for feature, label, idx in tqdm(self.test_dataset, desc='Evaluate', leave=False):
                 idx = str(idx[0].split("_")[-1])
                 feature, label = self.to_device(feature,label)
                 label =label.to(torch.long)
                 feature = feature.permute(0,2,1)
-
                 pred_score = self.model(feature).permute(0,2,1).squeeze(0)
                 pred_score = torch.softmax(pred_score, dim=-1)[:,1]
-                video_info = data_file["video_"+str(idx)]
-                pred_score, pred_selected, pred_summary = eval.select_keyshots(video_info, pred_score, self.selection_rate)
-                true_summary_arr = video_info['user_summary'][()]
-                eval_res = [eval.eval_metrics(pred_summary, true_summary) for true_summary in true_summary_arr]
-                eval_res = np.mean(eval_res, axis=0).tolist()
-
+                video_info = data_file["video_"+str(idx)]                
+                n_frames = video_info['length'][()]
+                sb = video_info['change_points'][()]
+                positions = video_info['picks'][()]
+                pred_summary = eval.generate_summary([sb], [pred_score.detach().numpy()], [n_frames], [positions])[0]
+                true_summary_arr = np.array(video_info['user_summary'][()])
+                eval_res = eval.evaluate_summary(pred_summary, true_summary_arr, self.eval_method)
                 eval_arr.append(eval_res)
-                table.add_row([idx] + eval_res)
-
-                # out_dict[idx] = {
-                #     'pred_score': pred_score, 
-                #     'pred_selected': pred_selected, 'pred_summary': pred_summary
-                #     }
-        
-        # score_save_path = self.config.score_dir + '/epoch-{}.json'.format(epoch_i)
-        # with open(score_save_path, 'w') as f:
-        #     tqdm.write('Save score at {}'.format(str(score_save_path)))
-        #     json.dump(out_dict, f)
         eval_mean = np.mean(eval_arr, axis=0).tolist()
-        table.add_row(['mean']+eval_mean)
-        return eval_mean, str(table)
-        # tqdm.write(str(table))
+        return eval_mean
